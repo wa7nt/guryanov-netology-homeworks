@@ -219,6 +219,10 @@ docker compose ps
 echo "guryanov_s 5" | curl --data-binary @- http://localhost:9091/metrics/job/netology
 ```
 
+Проверка, что метрика попала в Pushgateway (`curl http://localhost:9091/metrics | grep guryanov_s`):
+
+![Скриншот: метрика guryanov_s в Pushgateway](screenshots/07-pushgateway-metric.png)
+
 Проверка в Prometheus (Targets должен быть UP): http://<IP-сервера>:9090/targets
 
 2. Логинюсь в Grafana по адресу http://<IP-сервера>/ (порт 80) — логин `guryanov-s`, пароль `netology`.
