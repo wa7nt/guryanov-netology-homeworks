@@ -1,0 +1,89 @@
+# 6.4. Docker. Часть 2 — Сергей Гурьянов
+# Префикс имён: guryanov-s (Docker разрешает только латиницу, цифры и дефисы)
+version: '3.8'
+
+volumes:
+  prometheus-data:
+    name: guryanov-s-prometheus-data
+  grafana-data:
+    name: guryanov-s-grafana-data
+
+networks:
+  guryanov-s-my-netology-hw:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.5.0.0/16
+
+services:
+  # ---------- Задание 4: Pushgateway ----------
+  pushgateway:
+    image: prom/pushgateway:v1.11.1
+    container_name: guryanov-s-netology-pushgateway
+    hostname: pushgateway
+    restart: always
+    networks:
+      - guryanov-s-my-netology-hw
+    ports:
+      - "9091:9091"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9091/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ---------- Задание 3: Prometheus ----------
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: guryanov-s-netology-prometheus
+    hostname: prometheus
+    restart: always
+    networks:
+      - guryanov-s-my-netology-hw
+    depends_on:
+      pushgateway:
+        condition: service_healthy
+    volumes:
+      # том с данными
+      - prometheus-data:/prometheus
+      # том с конфигурацией
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ---------- Задание 5: Grafana ----------
+  grafana:
+    image: grafana/grafana:11.6.3
+    container_name: guryanov-s-netology-grafana
+    hostname: grafana
+    restart: always
+    networks:
+      - guryanov-s-my-netology-hw
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      # путь до файла с кастомными настройками (файл лежит в томе)
+      GF_PATHS_CONFIG: /etc/grafana/custom.ini
+    volumes:
+      # том с данными
+      - grafana-data:/var/lib/grafana
+      # том с конфигурацией (логин guryanov-s, пароль netology)
+      - ./grafana/custom.ini:/etc/grafana/custom.ini:ro
+    ports:
+      # внешний доступ к 3000 с 80-го порта докер-сервера
+      - "80:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

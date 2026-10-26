@@ -1,0 +1,110 @@
+# Задание 9* — вариант сценария с Alertmanager.
+# Поднимается отдельным файлом: docker compose -f docker-compose-star.yml up -d
+# Перед запуском раскомментируйте в prometheus/prometheus.yml:
+#   - строку "- alertmanager:9093" и "- "/etc/prometheus/rules.yml"" (см. отчёт).
+version: '3.8'
+
+volumes:
+  prometheus-data:
+    name: guryanov-s-prometheus-data
+  grafana-data:
+    name: guryanov-s-grafana-data
+
+networks:
+  guryanov-s-my-netology-hw:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.5.0.0/16
+
+services:
+  pushgateway:
+    image: prom/pushgateway:v1.11.1
+    container_name: guryanov-s-netology-pushgateway
+    hostname: pushgateway
+    restart: always
+    networks:
+      - guryanov-s-my-netology-hw
+    ports:
+      - "9091:9091"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9091/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: guryanov-s-netology-alertmanager
+    hostname: alertmanager
+    restart: always
+    networks:
+      - guryanov-s-my-netology-hw
+    volumes:
+      # том с данными
+      - alertmanager-data:/alertmanager
+      # том с конфигурацией
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: guryanov-s-netology-prometheus
+    hostname: prometheus
+    restart: always
+    networks:
+      - guryanov-s-my-netology-hw
+    depends_on:
+      pushgateway:
+        condition: service_healthy
+      alertmanager:
+        condition: service_healthy
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  grafana:
+    image: grafana/grafana:11.6.3
+    container_name: guryanov-s-netology-grafana
+    hostname: grafana
+    restart: always
+    networks:
+      - guryanov-s-my-netology-hw
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_PATHS_CONFIG: /etc/grafana/custom.ini
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/custom.ini:/etc/grafana/custom.ini:ro
+    ports:
+      - "80:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  alertmanager-data:
+    name: guryanov-s-alertmanager-data

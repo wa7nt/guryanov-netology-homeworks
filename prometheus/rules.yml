@@ -1,0 +1,13 @@
+# Задание 9*: правило-заглушка, которое всегда активно,
+# чтобы событие гарантированно появилось в интерфейсе Alertmanager.
+groups:
+  - name: netology-hw
+    rules:
+      - alert: NetologyHwAlert
+        expr: vector(1)
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Учебная тревога (homework alert)"
+          description: "Метрика guryanov_s проверяется в Prometheus."
